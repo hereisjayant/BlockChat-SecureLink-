@@ -1,11 +1,13 @@
 import React, { useEffect, useState } from 'react';
-import logo from '../logo.png';
 import Web3 from 'web3';
 import './App.css';
 
+import MessageRoom from "./MessageRoom";
+
 const App = () => {
-  const [connected, setConnected] = useState(false);
-  const [address, setAddress] = useState(null);
+  const [isConnected, setIsConnected] = useState(false);
+  const [userPubAddress, setUserPubAddress] = useState(null);
+  const [userBalance, setUserBalance] = useState(0);
   
   useEffect(() => {
     loadEverything();
@@ -20,27 +22,37 @@ const App = () => {
       try {
         console.log("Connecting to Metamask wallet...");
         const address = await window.ethereum.enable();
-        setConnected(true);
-        setAddress(address);
+        setUserPubAddress(address);
 
-        console.log("Connecting to local Ganache chain...");
+        console.log(`Connecting to local Ganache chain with address ${address}... `);
         window.web3 = new Web3(Web3.providers.WebsocketProvider("ws://localhost:7545"));
+
+        console.log("Loading address data...");
+        const ethBalance = await window.web3.eth.getBalance(String(address));
+    setUserBalance(ethBalance);
+
+        setIsConnected(true);
       }
       catch (err) {
         console.error(err);
-        setConnected(false);
+        setIsConnected(false);
       }
     } else if (window.web3) {
       window.web3 = new Web3(window.web3.currentProvider);
     } else {
-      setConnected(false);
-      console.error("No metamask or existing web3 provider detected")
+      setIsConnected(false);
+      console.error("No metamask or existing web3 provider detected");
     }
   }
 
   return (
     <div>
-      HELLO
+      <h1>YO</h1>
+      {isConnected &&
+        <MessageRoom
+          userAddress={userPubAddress}
+        />
+      }
     </div>
   )
 }
