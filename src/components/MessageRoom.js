@@ -36,24 +36,28 @@ const MessageRoom = ({
     }
   }
 
+  // Fetches all user addresses
   const fetchAddresses = async () => {
     const addresses = await window.web3.eth.getAccounts();
     setAddresses(addresses);
     setRecipientAddress(addresses[0]);
   }
 
+  // Sends a message
   const didSendMessage = async (message) => {
     await chatContract.methods.sendMessage(recipientAddress, message).send({
       from: userAddress, gas: 1500000
     });
   } 
 
+  // Listen for new messages
   const waitForMessage = async (contract) => {
     contract.events.messageSentEvent({})
       .on('data', didReceiveMessage)
       .on('error', console.error);
   }
 
+  // Function for listening to new message
   const didReceiveMessage = async (event) => {
     const message = event.returnValues.message;
     const isOwn = event.returnValues.from === userAddress;
