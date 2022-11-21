@@ -31,9 +31,10 @@ class Messenger
 
     async generateDH()
     {
-        this.dhsKeys = await subtle.generateKey({
-            name: 'X25519'
-        }, false, ['deriveKey', 'deriveBits']);
+        this.dhsKeys = crypto.generateKeyPairSync(
+            'x25519',
+            {publicKeyEncoding: {type: 'spki', format: 'pem'}}
+        );
     }
 
     getDHPublicKey()
@@ -87,26 +88,22 @@ class Messenger
 
     async generateRootKey(publicKey)
     {
-        const key = await subtle.deriveBits(
+        const keyBits = crypto.diffieHellman(
             {
-                name: 'X25519',
-                public: publicKey,
-            }, 
-            this.dhsKeys.privateKey,
-            null
-        );
-        this.rootKey = key;
+                publicKey: crypto.createPublicKey(publicKey),
+                privateKey: this.dhsKeys.privateKey
+            }
+        )
+        this.rootKey = keyBits;
     }
 
     async computeDH()
     {
-        let keyBits = await subtle.deriveBits(
+        const keyBits = crypto.diffieHellman(
             {
-                name: 'X25519',
-                public: this.dhrPK,
-            }, 
-            this.dhsKeys.privateKey,
-            null,
+                publicKey: crypto.createPublicKey(this.dhrPK),
+                privateKey: this.dhsKeys.privateKey
+            }
         );
         return await this.convertToHKDF(keyBits);
     }
@@ -233,7 +230,7 @@ class Messenger
         this.chainKeyS = chainKey;
 
         let header = {
-            publicKey: await subtle.exportKey('raw', this.dhsKeys.publicKey),
+            publicKey: this.dhsKeys.publicKey,
             p_n: this.p_n,
             n: this.n_s,
         };
@@ -259,7 +256,7 @@ class Messenger
         const plainTextBytes = await this.trySkippedMessageKeys(header, cipherText, hashHeader);
         if (plainTextBytes)
             return (new TextDecoder).decode(plainTextBytes);
-        if (!this.dhrPK || header.publicKey != await subtle.exportKey('raw', this.dhrPK))
+        if (!this.dhrPK || header.publicKey != this.dhrPK)
         {
             await this.skipMessageKeys(header.p_n);
             await this.setUpDHRatchet(header);
@@ -301,7 +298,7 @@ class Messenger
         this.p_n = header.n;
         this.n_s = 0;
         this.n_r = 0;
-        this.dhrPK = await this.convertToX25519(header.publicKey, true);
+        this.dhrPK = header.publicKey;
         let keyPair = await this.computeChainKey();
         this.rootKey = keyPair.rootKey;
         this.chainKeyR = keyPair.chainKey;
@@ -347,3 +344,6 @@ const main = async () => {
     ct = await b.ratchetEncrypt("b");
     console.log(await a.ratchetDecrypt(ct.header, ct.cipherText, ct.hashHeader));
 };
+
+main();
+
