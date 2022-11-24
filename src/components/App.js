@@ -22,7 +22,7 @@ const App = () => {
       try {
         console.log("Connecting to Metamask wallet...");
         const address = await window.ethereum.enable();
-        setUserPubAddress(address);
+        setUserPubAddress(address[0]);
 
         console.log(`Connecting to local Ganache chain with address ${address}... `);
         window.web3 = new Web3(Web3.providers.WebsocketProvider("ws://localhost:7545"));

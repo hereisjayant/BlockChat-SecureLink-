@@ -11,8 +11,22 @@ const MessageRoom = ({
 
   const loadEverything = async () => {
     const contract = await fetchSmartContract();
-    await fetchAddresses();
+    var add = await fetchAddresses();
     await waitForMessage(contract);
+    console.log("Rec Add. : ",add)
+    const message = {
+      message: "this is a new message",
+      address: add[0]
+    }
+    console.log(userAddress)
+    await didSendMessage(add[1], "Test message", contract)
+    await contract.events.messagesFetchEvent({}).on('data', (data)=>{
+      console.log(data)
+    })
+    .on('error', (err)=>console.log(err))
+    await didGetAllMessages(add[1], contract)
+    
+    
   }
 
   const [addresses, setAddresses] = useState([]);
@@ -39,15 +53,22 @@ const MessageRoom = ({
   // Fetches all user addresses
   const fetchAddresses = async () => {
     const addresses = await window.web3.eth.getAccounts();
+    console.log(addresses)
     setAddresses(addresses);
     setRecipientAddress(addresses[0]);
+    return addresses;
   }
 
   // Sends a message
-  const didSendMessage = async (message) => {
-    await chatContract.methods.sendMessage(recipientAddress, message).send({
-      from: userAddress, gas: 1500000
+  const didSendMessage = async (add, message, contract) => {
+    await contract.methods.sendMessage(add, message).send({
+      from: String(userAddress), gas: 1500000
     });
+  } 
+
+  // Sends a message
+  const didGetAllMessages = async (add, contract) => {
+    await contract.methods.getAllMessages(add).send({  from: userAddress })
   } 
 
   // Listen for new messages
