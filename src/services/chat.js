@@ -52,6 +52,7 @@ class Messenger
         this.dhsKeys = crypto.generateKeyPairSync(
             'x25519',
             {
+                privateKeyEncoding: {type: 'pkcs8', format: 'pem'},
                 publicKeyEncoding: {type: 'spki', format: 'pem'},
             }
         );
@@ -108,7 +109,7 @@ class Messenger
             'raw',
             key,
             {name: 'HMAC', hash: 'SHA-256'},
-            false,
+            true,
             ['sign', 'verify']
         )
     }
@@ -123,7 +124,7 @@ class Messenger
         const keyBits = crypto.diffieHellman(
             {
                 publicKey: crypto.createPublicKey(publicKey),
-                privateKey: this.dhsKeys.privateKey
+                privateKey: crypto.createPrivateKey(this.dhsKeys.privateKey)
             }
         )
         this.rootKey = keyBits;
@@ -138,7 +139,7 @@ class Messenger
         const keyBits = crypto.diffieHellman(
             {
                 publicKey: crypto.createPublicKey(this.dhrPK),
-                privateKey: this.dhsKeys.privateKey
+                privateKey: crypto.createPrivateKey(this.dhsKeys.privateKey)
             }
         );
         return await this.convertToHKDF(keyBits);
@@ -155,6 +156,7 @@ class Messenger
     async generateEncryptKeys(messageKey)
     {
         const neededBytes = 80;
+        messageKey = await this.convertToHKDF(messageKey);
         const key_init = await subtle.deriveBits
         (
             {
@@ -242,14 +244,12 @@ class Messenger
             )
         );
         
-        let messageKey = await this.convertToHKDF(await subtle.sign
+        let messageKey = await subtle.sign
             (
                 {name: 'HMAC'},
                 inputKey,
                 msgKeyInput,
-            )
-        );
-
+            );
         return {chainKey, messageKey}
     }
 
@@ -276,7 +276,6 @@ class Messenger
     async decryptMsg(messageKey, cipherText, header, hashHeader)
     {
         const {iv, encryptKey, authKey} = await this.generateEncryptKeys(messageKey);
-        this.n_r += 1;
         // Integrity check
         const verified = await subtle.verify(
             {name: 'HMAC'},
@@ -348,7 +347,7 @@ class Messenger
         // Check if message corresponds to a skipped message
         const plainTextBytes = await this.trySkippedMessageKeys(header, cipherText, hashHeader);
         if (plainTextBytes)
-            return (new TextDecoder).decode(plainTextBytes);
+            return plainTextBytes;
         // If new ratchet key was recevied then it stores skipped message keys from receiving chain 
         // and resets DH, sending, and receiving ratchet
         if (!this.dhrPK || header.publicKey != this.dhrPK)
@@ -356,12 +355,12 @@ class Messenger
             await this.skipMessageKeys(header.p_n);
             await this.setUpDHRatchet(header);
         }
-        await this.skipMessageKeys(header.n_s);
+        await this.skipMessageKeys(header.n);
         // Advances ratchet to retrieve necessary keys to decrypt message
         const {chainKey, messageKey} = await this.kdfCK(this.chainKeyR);
         this.n_r += 1;
         this.chainKeyR = chainKey
-        return this.decryptMsg(messageKey, cipherText, header, hashHeader);
+        return await this.decryptMsg(messageKey, cipherText, header, hashHeader);
     }
 
     /**
@@ -370,32 +369,32 @@ class Messenger
      * @param {{publicKey: string, p_n: number, n: number}} header Message header
      * @param {Buffer} cipherText Encrypted message
      * @param {Buffer} hashHeader Hashed message header
-     * @returns null if message was not skipped or <Buffer> of plaintext if old message key was found
+     * @returns null if message was not skipped or <string> of plaintext if old message key was found
      */
     async trySkippedMessageKeys(header, cipherText, hashHeader)
     {
-        let index = this.msSkip.findIndex(i => i.publicKey == header.publicKey && i.n_s == header.n_r);
-        if (index > 0)
+        let index = this.msSkip.findIndex(i => i.publicKey == header.publicKey && i.n == header.n);
+        if (index > -1)
         {
             const messageKey = this.msSkip[index].msgKey;
             this.msSkip.splice(index, 1);
-            return this.decryptMsg(messageKey, cipherText, header, hashHeader);
+            return await this.decryptMsg(messageKey, cipherText, header, hashHeader);
         }
         return null;
     }
 
     /**
      * Advances chain key ratchet using previously sent `chainKeyR` and current `chainKeyS` to compute key necessary for decryption 
-     * @param {number} p_n Number of messages in previous sending chain
+     * @param {number} until Number of messages in previous sending chain
      */
-    async skipMessageKeys(p_n)
+    async skipMessageKeys(until)
     {
         if (this.chainKeyR != null)
         {
-            while (this.n_r < p_n)
+            while (this.n_r < until)
             {
-                const {chainKeyS, messageKey} = this.kdfCK(this.chainKeyR);
-                this.chainKeyS = chainKeyS;
+                const {chainKey, messageKey} = await this.kdfCK(this.chainKeyR);
+                this.chainKeyS = chainKey;
                 this.msSkip.push({publicKey: this.dhrPK, msgKey: messageKey, n: this.n_r});
                 this.n_r += 1;
             }
@@ -420,6 +419,21 @@ class Messenger
         keyPair = await this.kdfRK();
         this.rootKey = keyPair.rootKey;
         this.chainKeyS = keyPair.chainKey;
+    }
+
+    async export()
+    {
+        const decoder = new TextDecoder();
+        return {
+            dhsKeys: this.dhsKeys,
+            dhrPK: this.dhrPK,
+            rootKey: decoder.decode(new Uint8Array(this.rootKey)),
+            chainKeyS: await subtle.exportKey('jwk', this.chainKeyS),
+            chainKeyR: await subtle.exportKey('jwk', this.chainKeyR),
+            n_s: this.n_s,
+            n_r: this.n_r,
+            msSkip: this.msSkip.map(x => {return {publicKey: x.publicKey, msgKey: decoder.decode(new Uint8Array(x.msgKey)), n: x.n}}),
+        };
     }
 }
 
@@ -463,8 +477,18 @@ const main = async () => {
     console.log(await a.ratchetDecrypt(ct.header, ct.cipherText, ct.hashHeader));
     let msg1 = await a.ratchetEncrypt("msg1");
     let msg2 = await a.ratchetEncrypt("msg2");
+    let msg3 = await a.ratchetEncrypt("msg3");
+    let msg4 = await a.ratchetEncrypt("msg4");
+    console.log(await b.ratchetDecrypt(msg4.header, msg4.cipherText, msg4.hashHeader));
+    console.log(b.msSkip.length);
+    console.log(b.msSkip);
+    console.log(await b.export());
+    console.log(await b.ratchetDecrypt(msg3.header, msg3.cipherText, msg3.hashHeader));
+    console.log(b.msSkip.length);
     console.log(await b.ratchetDecrypt(msg2.header, msg2.cipherText, msg2.hashHeader));
+    console.log(b.msSkip.length);
     console.log(await b.ratchetDecrypt(msg1.header, msg1.cipherText, msg1.hashHeader));
+    console.log(b.msSkip.length);
 };
 
 main();
