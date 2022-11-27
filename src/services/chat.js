@@ -448,7 +448,6 @@ class Messenger
      */
     async export()
     {
-        const decoder = new TextDecoder();
         return JSON.stringify({
             dhsKeys: this.dhsKeys,
             dhrPK: this.dhrPK,
@@ -518,6 +517,8 @@ const main = async () => {
     a = await Messenger.import(JSON.parse(astr));
     ct = await b.ratchetEncrypt('DONE');
     console.log(await a.ratchetDecrypt(ct.header, ct.cipherText, ct.hashHeader));
+    ct = await a.ratchetEncrypt('CONFIRMED');
+    console.log(await b.ratchetDecrypt(ct.header, ct.cipherText, ct.hashHeader));
 };
 
 main();
