@@ -59,6 +59,7 @@ class Messenger
         messenger.chainKeyR = await subtle.importKey('jwk', imported.chainKeyR, messenger.HMAC, true, ['sign', 'verify']);
         messenger.n_s = imported.n_s;
         messenger.n_r = imported.n_r;
+        messenger.p_n = imported.p_n;
         messenger.msSkip = JSON.parse(JSON.stringify(imported.msSkip));
 
         return messenger;
@@ -456,6 +457,7 @@ class Messenger
             chainKeyR: await subtle.exportKey('jwk', this.chainKeyR),
             n_s: this.n_s,
             n_r: this.n_r,
+            p_n: this.p_n,
             msSkip: this.msSkip.map(x => {return {publicKey: x.publicKey, msgKey: Buffer.from(x.msgKey).toString('hex'), n: x.n}}),
         });
     }
