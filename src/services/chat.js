@@ -44,6 +44,27 @@ class Messenger
     }
 
     /**
+     * Create and import new Messenger object
+     * @param {Object} imported Stored JSON object containing JSON.parse() Messenger attributes
+     * @returns new Messenger object with attributes set by `imported`
+     */
+    static async import(imported)
+    {
+        const messenger = new Messenger();
+        const makeUint8Buf = (x) => Uint8Array.from(Buffer.from(x, 'hex'));
+        messenger.dhsKeys = imported.dhsKeys;
+        messenger.dhrPK = imported.dhrPK;
+        messenger.rootKey = makeUint8Buf(imported.rootKey);
+        messenger.chainKeyS = await subtle.importKey('jwk', imported.chainKeyS, messenger.HMAC, true, ['sign', 'verify']);
+        messenger.chainKeyR = await subtle.importKey('jwk', imported.chainKeyR, messenger.HMAC, true, ['sign', 'verify']);
+        messenger.n_s = imported.n_s;
+        messenger.n_r = imported.n_r;
+        messenger.msSkip = JSON.parse(JSON.stringify(imported.msSkip));
+
+        return messenger;
+    }
+
+    /**
      * Generates Diffie-Hellman Key Exchange using Curve25519 
      * Stores key pair into this.dhsKeys
      */
@@ -108,7 +129,7 @@ class Messenger
         (
             'raw',
             key,
-            {name: 'HMAC', hash: 'SHA-256'},
+            this.HMAC,
             true,
             ['sign', 'verify']
         )
@@ -193,7 +214,7 @@ class Messenger
         (
             'raw',
             authKey,
-            {name: 'HMAC', hash: 'SHA-256'},
+            this.HMAC,
             false,
             ['sign', 'verify']
         );
@@ -421,19 +442,23 @@ class Messenger
         this.chainKeyS = keyPair.chainKey;
     }
 
+    /**
+     * Export Messenger object as JSON string
+     * @returns JSON string
+     */
     async export()
     {
         const decoder = new TextDecoder();
-        return {
+        return JSON.stringify({
             dhsKeys: this.dhsKeys,
             dhrPK: this.dhrPK,
-            rootKey: decoder.decode(new Uint8Array(this.rootKey)),
+            rootKey: Buffer.from(this.rootKey).toString('hex'),
             chainKeyS: await subtle.exportKey('jwk', this.chainKeyS),
             chainKeyR: await subtle.exportKey('jwk', this.chainKeyR),
             n_s: this.n_s,
             n_r: this.n_r,
-            msSkip: this.msSkip.map(x => {return {publicKey: x.publicKey, msgKey: decoder.decode(new Uint8Array(x.msgKey)), n: x.n}}),
-        };
+            msSkip: this.msSkip.map(x => {return {publicKey: x.publicKey, msgKey: Buffer.from(x.msgKey).toString('hex'), n: x.n}}),
+        });
     }
 }
 
@@ -481,14 +506,18 @@ const main = async () => {
     let msg4 = await a.ratchetEncrypt("msg4");
     console.log(await b.ratchetDecrypt(msg4.header, msg4.cipherText, msg4.hashHeader));
     console.log(b.msSkip.length);
-    console.log(b.msSkip);
-    console.log(await b.export());
+    const bstr = await b.export();
+    b = await Messenger.import(JSON.parse(bstr));
     console.log(await b.ratchetDecrypt(msg3.header, msg3.cipherText, msg3.hashHeader));
     console.log(b.msSkip.length);
     console.log(await b.ratchetDecrypt(msg2.header, msg2.cipherText, msg2.hashHeader));
     console.log(b.msSkip.length);
     console.log(await b.ratchetDecrypt(msg1.header, msg1.cipherText, msg1.hashHeader));
     console.log(b.msSkip.length);
+    const astr = await a.export();
+    a = await Messenger.import(JSON.parse(astr));
+    ct = await b.ratchetEncrypt('DONE');
+    console.log(await a.ratchetDecrypt(ct.header, ct.cipherText, ct.hashHeader));
 };
 
 main();
