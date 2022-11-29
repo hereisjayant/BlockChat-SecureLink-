@@ -1,4 +1,4 @@
-const crypto = require("crypto");
+const crypto = window.crypto;
 // replacement should be something like
 // const crypto = windows.crypto
 const subtle = crypto.subtle;
@@ -55,8 +55,11 @@ class Messenger
     {
         const messenger = new Messenger();
         const makeUint8Buf = (x) => Uint8Array.from(Buffer.from(x, 'hex'));
-        messenger.dhsKeys = imported.dhsKeys;
-        messenger.dhrPK = imported.dhrPK;
+        messenger.dhsKeys = {
+            privateKey: await subtle.importKey('pkcs8', makeUint8Buf(imported.dhsKeys.privateKey), {name: 'X25519'}, true, ['deriveKey', 'deriveBits']),
+            publicKey: await subtle.importKey('spki', makeUint8Buf(imported.dhsKeys.publicKey), {name: 'X25519'},true, ['deriveKey', 'deriveBits']),
+        };
+        messenger.dhrPK = await subtle.importKey('spki', makeUint8Buf(imported.dhrPK), {name: 'X25519'}, true, ['deriveKey', 'deriveBits']);
         messenger.rootKey = makeUint8Buf(imported.rootKey);
         messenger.chainKeyS = await subtle.importKey('jwk', imported.chainKeyS, messenger.HMAC, true, ['sign', 'verify']);
         messenger.chainKeyR = await subtle.importKey('jwk', imported.chainKeyR, messenger.HMAC, true, ['sign', 'verify']);
@@ -68,33 +71,24 @@ class Messenger
         return messenger;
     }
 
-    /**
+    /*
      * Generates Diffie-Hellman Key Exchange using Curve25519 
      * Stores key pair into this.dhsKeys
      */
     async generateDH()
     {
-        this.dhsKeys = crypto.generateKeyPairSync(
-            'x25519',
-            {
-                privateKeyEncoding: {type: 'pkcs8', format: 'pem'},
-                publicKeyEncoding: {type: 'spki', format: 'pem'},
-            }
-        );
-
-        // Tried the following, but X25519 isn't supported:
-        // this.dhsKeys = subtle.generateKey({
-        //     name: 'X25519',
-        //   }, true, ['encrypt', 'decrypt']);
+        this.dhsKeys = await subtle.generateKey({
+            name: 'X25519'
+        }, true, ['deriveKey', 'deriveBits']);
     }
 
     /**
      * Returns DH Public key
      * @returns DH Public Key in 'spki-pem' form
      */
-    getDHPublicKey()
+    async getDHPublicKey()
     {
-        return this.dhsKeys.publicKey;
+        return await subtle.exportKey('spki', this.dhsKeys.publicKey);
     }
 
     /**
@@ -103,7 +97,7 @@ class Messenger
      */
     async receivePublicKey(publicKey)
     {
-        this.dhrPK = publicKey;
+        this.dhrPK = await subtle.importKey('spki', publicKey, {name: 'X25519'}, true, ['deriveBits', 'deriveKey']);
         const {chainKey, rootKey} = await this.kdfRK();
         this.rootKey = rootKey;
         this.chainKeyS = chainKey;
@@ -151,14 +145,15 @@ class Messenger
      */
     async generateRootKey(publicKey)
     {
-        const keyBits = crypto.diffieHellman(
+        const key = await subtle.deriveBits(
             {
-                // I think these two are also not supported by the crypto WEB API
-                publicKey: crypto.createPublicKey(publicKey),
-                privateKey: crypto.createPrivateKey(this.dhsKeys.privateKey)
-            }
-        )
-        this.rootKey = keyBits;
+                name: 'X25519',
+                public: await subtle.importKey('spki', publicKey, {name: 'X25519'}, true, ['deriveBits', 'deriveKey']),
+            }, 
+            this.dhsKeys.privateKey,
+            null
+        );
+        this.rootKey = key;
     }
 
     /**
@@ -167,12 +162,13 @@ class Messenger
      */
     async computeDH()
     {
-        const keyBits = crypto.diffieHellman(
+        const keyBits = await subtle.deriveBits(
             {
-                // I think these two are also not supported by the crypto WEB API
-                publicKey: crypto.createPublicKey(this.dhrPK),
-                privateKey: crypto.createPrivateKey(this.dhsKeys.privateKey)
-            }
+                name: 'X25519',
+                public: this.dhrPK,
+            }, 
+            this.dhsKeys.privateKey,
+            null,
         );
         return await this.convertToHKDF(keyBits);
     }
@@ -460,8 +456,11 @@ class Messenger
     async export()
     {
         return JSON.stringify({
-            dhsKeys: this.dhsKeys,
-            dhrPK: this.dhrPK,
+            dhsKeys: {
+                publicKey: Buffer.from(await subtle.exportKey('spki', this.dhsKeys.publicKey)).toString('hex'), 
+                privateKey: Buffer.from(await subtle.exportKey('pkcs8', this.dhsKeys.privateKey)).toString('hex')
+            },
+            dhrPK: Buffer.from(await subtle.exportKey('spki', this.dhrPK)).toString('hex'),
             rootKey: Buffer.from(this.rootKey).toString('hex'),
             chainKeyS: await subtle.exportKey('jwk', this.chainKeyS),
             chainKeyR: await subtle.exportKey('jwk', this.chainKeyR),
@@ -473,67 +472,67 @@ class Messenger
     }
 }
 
-// const main = async () => {
-//     let a = new Messenger();
-//     let b = new Messenger();
-//     await a.generateDH();
-//     await b.generateDH();
-//     let apkr = a.getDHPublicKey();
-//     let bpkr = b.getDHPublicKey();
-//     await a.generateRootKey(bpkr);
-//     await b.generateRootKey(apkr);
+const main = async () => {
+    let a = new Messenger();
+    let b = new Messenger();
+    await a.generateDH();
+    await b.generateDH();
+    let apkr = await a.getDHPublicKey();
+    let bpkr = await b.getDHPublicKey();
+    await a.generateRootKey(bpkr);
+    await b.generateRootKey(apkr);
 
-//     await a.generateDH();
-//     await b.generateDH();
-//     bpkr = b.getDHPublicKey();
-//     await a.receivePublicKey(bpkr);
-//     let ct = await a.ratchetEncrypt('a');
-//     console.log(await b.ratchetDecrypt(ct.header, ct.cipherText, ct.hashHeader));
-//     ct = await b.ratchetEncrypt("b");
-//     console.log(await a.ratchetDecrypt(ct.header, ct.cipherText, ct.hashHeader));
-//     ct = await a.ratchetEncrypt("a");
-//     console.log(await b.ratchetDecrypt(ct.header, ct.cipherText, ct.hashHeader));
-//     ct = await a.ratchetEncrypt("a");
-//     console.log(await b.ratchetDecrypt(ct.header, ct.cipherText, ct.hashHeader));
-//     ct = await a.ratchetEncrypt("a");
-//     console.log(await b.ratchetDecrypt(ct.header, ct.cipherText, ct.hashHeader));
-//     ct = await a.ratchetEncrypt("a");
-//     console.log(await b.ratchetDecrypt(ct.header, ct.cipherText, ct.hashHeader));
-//     ct = await a.ratchetEncrypt("a");
-//     console.log(await b.ratchetDecrypt(ct.header, ct.cipherText, ct.hashHeader));
-//     ct = await b.ratchetEncrypt("b");
-//     console.log(await a.ratchetDecrypt(ct.header, ct.cipherText, ct.hashHeader));
-//     ct = await b.ratchetEncrypt("b");
-//     console.log(await a.ratchetDecrypt(ct.header, ct.cipherText, ct.hashHeader));
-//     ct = await b.ratchetEncrypt("b");
-//     console.log(await a.ratchetDecrypt(ct.header, ct.cipherText, ct.hashHeader));
-//     ct = await a.ratchetEncrypt("a");
-//     console.log(await b.ratchetDecrypt(ct.header, ct.cipherText, ct.hashHeader));
-//     ct = await b.ratchetEncrypt("b");
-//     console.log(await a.ratchetDecrypt(ct.header, ct.cipherText, ct.hashHeader));
-//     let msg1 = await a.ratchetEncrypt("msg1");
-//     let msg2 = await a.ratchetEncrypt("msg2");
-//     let msg3 = await a.ratchetEncrypt("msg3");
-//     let msg4 = await a.ratchetEncrypt("msg4");
-//     console.log(await b.ratchetDecrypt(msg4.header, msg4.cipherText, msg4.hashHeader));
-//     console.log(b.msSkip.length);
-//     const bstr = await b.export();
-//     b = await Messenger.import(JSON.parse(bstr));
-//     console.log(await b.ratchetDecrypt(msg3.header, msg3.cipherText, msg3.hashHeader));
-//     console.log(b.msSkip.length);
-//     console.log(await b.ratchetDecrypt(msg2.header, msg2.cipherText, msg2.hashHeader));
-//     console.log(b.msSkip.length);
-//     console.log(await b.ratchetDecrypt(msg1.header, msg1.cipherText, msg1.hashHeader));
-//     console.log(b.msSkip.length);
-//     const astr = await a.export();
-//     a = await Messenger.import(JSON.parse(astr));
-//     ct = await b.ratchetEncrypt('DONE');
-//     console.log(await a.ratchetDecrypt(ct.header, ct.cipherText, ct.hashHeader));
-//     ct = await a.ratchetEncrypt('CONFIRMED');
-//     console.log(await b.ratchetDecrypt(ct.header, ct.cipherText, ct.hashHeader));
-// };
+    await a.generateDH();
+    await b.generateDH();
+    bpkr = await b.getDHPublicKey();
+    await a.receivePublicKey(bpkr);
+    let ct = await a.ratchetEncrypt('a');
+    console.log(await b.ratchetDecrypt(ct.header, ct.cipherText, ct.hashHeader));
+    ct = await b.ratchetEncrypt("b");
+    console.log(await a.ratchetDecrypt(ct.header, ct.cipherText, ct.hashHeader));
+    ct = await a.ratchetEncrypt("a");
+    console.log(await b.ratchetDecrypt(ct.header, ct.cipherText, ct.hashHeader));
+    ct = await a.ratchetEncrypt("a");
+    console.log(await b.ratchetDecrypt(ct.header, ct.cipherText, ct.hashHeader));
+    ct = await a.ratchetEncrypt("a");
+    console.log(await b.ratchetDecrypt(ct.header, ct.cipherText, ct.hashHeader));
+    ct = await a.ratchetEncrypt("a");
+    console.log(await b.ratchetDecrypt(ct.header, ct.cipherText, ct.hashHeader));
+    ct = await a.ratchetEncrypt("a");
+    console.log(await b.ratchetDecrypt(ct.header, ct.cipherText, ct.hashHeader));
+    ct = await b.ratchetEncrypt("b");
+    console.log(await a.ratchetDecrypt(ct.header, ct.cipherText, ct.hashHeader));
+    ct = await b.ratchetEncrypt("b");
+    console.log(await a.ratchetDecrypt(ct.header, ct.cipherText, ct.hashHeader));
+    ct = await b.ratchetEncrypt("b");
+    console.log(await a.ratchetDecrypt(ct.header, ct.cipherText, ct.hashHeader));
+    ct = await a.ratchetEncrypt("a");
+    console.log(await b.ratchetDecrypt(ct.header, ct.cipherText, ct.hashHeader));
+    ct = await b.ratchetEncrypt("b");
+    console.log(await a.ratchetDecrypt(ct.header, ct.cipherText, ct.hashHeader));
+    let msg1 = await a.ratchetEncrypt("msg1");
+    let msg2 = await a.ratchetEncrypt("msg2");
+    let msg3 = await a.ratchetEncrypt("msg3");
+    let msg4 = await a.ratchetEncrypt("msg4");
+    console.log(await b.ratchetDecrypt(msg4.header, msg4.cipherText, msg4.hashHeader));
+    console.log(b.msSkip.length);
+    const bstr = await b.export();
+    b = await Messenger.import(JSON.parse(bstr));
+    console.log(await b.ratchetDecrypt(msg3.header, msg3.cipherText, msg3.hashHeader));
+    console.log(b.msSkip.length);
+    console.log(await b.ratchetDecrypt(msg2.header, msg2.cipherText, msg2.hashHeader));
+    console.log(b.msSkip.length);
+    console.log(await b.ratchetDecrypt(msg1.header, msg1.cipherText, msg1.hashHeader));
+    console.log(b.msSkip.length);
+    const astr = await a.export();
+    a = await Messenger.import(JSON.parse(astr));
+    ct = await b.ratchetEncrypt('DONE');
+    console.log(await a.ratchetDecrypt(ct.header, ct.cipherText, ct.hashHeader));
+    ct = await a.ratchetEncrypt('CONFIRMED');
+    console.log(await b.ratchetDecrypt(ct.header, ct.cipherText, ct.hashHeader));
+};
 
-// main();
+//main();
 
 export default Messenger;
 

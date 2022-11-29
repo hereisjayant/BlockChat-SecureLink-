@@ -132,7 +132,7 @@ const MessageRoom = ({
     const testMsg = "Test message";
     console.log(`Sending test message to ${recipientAddress}: "${testMsg}"`);
     // ** CALL ENCRYPT HERE **
-    const testPackageEncrypted = messenger.ratchetEncrypt(testMsg);
+    const testPackageEncrypted = await messenger.ratchetEncrypt(testMsg);
     const { cipherText: testMsgEncrypted, ...headers } = testPackageEncrypted;
     console.log(`### ecrpyted message: ${testMsgEncrypted}`)
     await requestSendMessage(testMsg, JSON.stringify(headers));

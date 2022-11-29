@@ -25,11 +25,12 @@ const App = () => {
   const loadMessenger = async () => {
     try {
       const m = new Messenger();
+      console.log('new thing', m);
       await m.generateDH();
-      let pkr = m.getDHPublicKey();
+      let pkr = await m.getDHPublicKey();
       await m.generateRootKey(pkr);
-      // await m.generateDH();
-      // pkr = m.getDHPublicKey();
+      await m.generateDH();
+      pkr = await m.getDHPublicKey();
       setMessenger(m);
       console.log({ m })
     } catch (err) {
