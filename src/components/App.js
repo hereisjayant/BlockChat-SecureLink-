@@ -2,19 +2,39 @@ import React, { useEffect, useState } from 'react';
 import Web3 from 'web3';
 import './App.css';
 
+import Messenger from "../services/chat";
 import MessageRoom from "./MessageRoom/index";
 
 const App = () => {
   const [isConnected, setIsConnected] = useState(false);
   const [userPubAddress, setUserPubAddress] = useState(null);
   const [userBalance, setUserBalance] = useState(0);
+
+  const [messenger, setMessenger] = useState(null);
   
   useEffect(() => {
     loadEverything();
   }, []);
 
-  const loadEverything = () => {
-    loadWeb3();
+  const loadEverything = async () => {
+    await loadMessenger();
+    await loadWeb3();
+  }
+
+  // This is where things start going downhill
+  const loadMessenger = async () => {
+    try {
+      const m = new Messenger();
+      await m.generateDH();
+      let pkr = m.getDHPublicKey();
+      await m.generateRootKey(pkr);
+      // await m.generateDH();
+      // pkr = m.getDHPublicKey();
+      setMessenger(m);
+      console.log({ m })
+    } catch (err) {
+      console.error("error loading messenger!", err);
+    }
   }
 
   const loadWeb3 = async () => {
@@ -59,6 +79,7 @@ const App = () => {
       <div>Balance: {userBalance}</div>
       {isConnected &&
         <MessageRoom
+          messenger={messenger}
           userAddress={userPubAddress}
         />
       }
