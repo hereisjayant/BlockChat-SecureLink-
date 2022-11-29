@@ -1,5 +1,8 @@
 const crypto = require("crypto");
+// replacement should be something like
+// const crypto = windows.crypto
 const subtle = crypto.subtle;
+
 
 
 /**
@@ -78,6 +81,11 @@ class Messenger
                 publicKeyEncoding: {type: 'spki', format: 'pem'},
             }
         );
+
+        // Tried the following, but X25519 isn't supported:
+        // this.dhsKeys = subtle.generateKey({
+        //     name: 'X25519',
+        //   }, true, ['encrypt', 'decrypt']);
     }
 
     /**
@@ -145,6 +153,7 @@ class Messenger
     {
         const keyBits = crypto.diffieHellman(
             {
+                // I think these two are also not supported by the crypto WEB API
                 publicKey: crypto.createPublicKey(publicKey),
                 privateKey: crypto.createPrivateKey(this.dhsKeys.privateKey)
             }
@@ -160,6 +169,7 @@ class Messenger
     {
         const keyBits = crypto.diffieHellman(
             {
+                // I think these two are also not supported by the crypto WEB API
                 publicKey: crypto.createPublicKey(this.dhrPK),
                 privateKey: crypto.createPrivateKey(this.dhsKeys.privateKey)
             }
