@@ -21,20 +21,28 @@ const App = () => {
     if (window.ethereum) { // if metamask exists
       try {
         console.log("Connecting to Metamask wallet...");
-        const address = await window.ethereum.enable();
-        setUserPubAddress(address[0]);
+        const address = (await window.ethereum.request({ method: 'eth_requestAccounts' }))[0];
+        setUserPubAddress(address);
 
         console.log(`Connecting to local Ganache chain with address ${address}... `);
-        window.web3 = new Web3(Web3.providers.WebsocketProvider("ws://localhost:7545"));
+        const wsProvider = new Web3.providers.WebsocketProvider("ws://localhost:7545");
+        window.web3 = new Web3(wsProvider);
 
         console.log("Loading address data...");
-        const ethBalance = await window.web3.eth.getBalance(String(address));
-    setUserBalance(ethBalance);
+        const ethBalance = await window.web3.eth.getBalance(address);
+        setUserBalance(ethBalance);
 
         setIsConnected(true);
       }
       catch (err) {
-        console.error(err);
+        if (err.code === 4001) {
+          // EIP-1193 userRejectedRequest error
+          // If this happens, the user rejected the connection request.
+          console.error('User denied wallet access!', err);
+        }
+        else {
+          console.error(err);
+        }
         setIsConnected(false);
       }
     } else if (window.web3) {
@@ -47,7 +55,8 @@ const App = () => {
 
   return (
     <div>
-      <h1>YO</h1>
+      <h1>Current Address: {userPubAddress}</h1>
+      <div>Balance: {userBalance}</div>
       {isConnected &&
         <MessageRoom
           userAddress={userPubAddress}

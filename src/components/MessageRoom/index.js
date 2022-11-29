@@ -5,83 +5,53 @@ const MessageRoom = ({
   userAddress
 }) =>  {
 
-  useEffect(() => {
-    loadEverything();
-  }, []);
-
-  const loadEverything = async () => {
-    const contract = await fetchSmartContract();
-    var add = await fetchAddresses();
-    await waitForMessage(contract);
-    console.log("Rec Add. : ",add)
-    const message = {
-      message: "this is a new message",
-      address: add[0]
-    }
-    console.log(userAddress)
-    await didSendMessage(add[1], "Test message", contract)
-    await contract.events.messagesFetchEvent({}).on('data', (data)=>{
-      console.log(data)
-    })
-    .on('error', (err)=>console.log(err))
-    await didGetAllMessages(add[1], contract)
-    
-    
-  }
+  const [chatContract, setChatContract] = useState(null);
+  const [isListenersActive, setIsListenersActive] = useState(false);
 
   const [addresses, setAddresses] = useState([]);
   const [recipientAddress, setRecipientAddress] = useState(null);
-  const [chatContract, setChatContract] = useState(null);
 
   const [messageList, setMessageList] = useState([]);
+  // I think below line is temporary, not sure how to coordinate both "didReceiveMessage" and "didFetchAllMessages"
+  const [fullMessageList, setFullMessageList] = useState([]);
 
-  const fetchSmartContract = async () => {
-    const networkId = await window.web3.eth.net.getId();
-    const chatData = Chat.networks[networkId];
-    const chatAbi = Chat.abi;
+  useEffect(() => {
+    if (!chatContract) fetchSmartContract();
+    else loadEverything();
+  }, [chatContract]);
 
-    if (chatData) {
-      const contract = await new window.web3.eth.Contract(chatAbi, chatData.address);
-      setChatContract(contract);
-      return contract;
-    }
-    else {
-      console.error("Chat contract not deployed");
+  const loadEverything = async () => {
+    try {
+      await setupListeners();
+      await fetchAddresses();
+    } catch(err) {
+      console.error(err);
     }
   }
 
-  // Fetches all user addresses
-  const fetchAddresses = async () => {
-    const addresses = await window.web3.eth.getAccounts();
-    console.log(addresses)
-    setAddresses(addresses);
-    setRecipientAddress(addresses[0]);
-    return addresses;
-  }
+  const setupListeners = async () => {
+    try {
+      // listen for new messages
+      await chatContract.events.messageSentEvent({})
+        .on('data', didReceiveMessage)
+        .on('error', (err) => { console.error("An error occured while receiving a new message!", err)} );
 
-  // Sends a message
-  const didSendMessage = async (add, message, contract) => {
-    await contract.methods.sendMessage(add, message).send({
-      from: String(userAddress), gas: 1500000
-    });
-  } 
-
-  // Sends a message
-  const didGetAllMessages = async (add, contract) => {
-    await contract.methods.getAllMessages(add).send({  from: userAddress })
-  } 
-
-  // Listen for new messages
-  const waitForMessage = async (contract) => {
-    contract.events.messageSentEvent({})
-      .on('data', didReceiveMessage)
-      .on('error', console.error);
+      // listen for fetch message return value
+      await chatContract.events.messagesFetchAllEvent({})
+        .on('data', didFetchAllMessages)
+        .on('error', (err) => { console.error("An error occured while fetching all messages!", err)} );
+      setIsListenersActive(true);
+    } catch(err) {
+      console.error("error setting up listeners", err);
+      setIsListenersActive(false);
+      throw err;
+    }
   }
 
   // Function for listening to new message
   const didReceiveMessage = async (event) => {
     const message = event.returnValues.message;
-    const isOwn = event.returnValues.from === userAddress;
+    const isOwn = event.returnValues.from.toLowerCase() === userAddress.toLowerCase();
 
     const ml = messageList;
     ml.push(
@@ -89,14 +59,95 @@ const MessageRoom = ({
         msg: message,
         isOwn: isOwn
       }
-    )
+    );
 
     setMessageList(ml);
     // updateUI();
   }
 
+  // Function to handle messages fetch
+  const didFetchAllMessages = async (event) => {
+    const messages = event.returnValues.messages;
+    console.log("fetching:", { messages })
+
+    const ml = [];
+
+    messages.forEach((m) => {
+      ml.push({
+        msg: m['message'],
+        isOwn: m['from'].toLowerCase() === userAddress.toLowerCase(),
+      })
+    })
+    setFullMessageList(ml);
+    // updateUI();
+  }
+
+
+  // Fetches the smart contract object
+  const fetchSmartContract = async () => {
+    try {
+      const networkId = await window.web3.eth.net.getId();
+      const chatData = Chat.networks[networkId];
+      const chatAbi = Chat.abi;
+
+      if (!chatData) throw Error("Chat contract not deployed");
+
+      const contract = await new window.web3.eth.Contract(chatAbi, chatData.address);
+      setChatContract(contract);
+      console.log("fetched smart contract!", contract)
+    } catch (err) {
+      console.error(err);
+    }
+  }
+
+  // Fetches all user addresses
+  const fetchAddresses = async () => {
+    const addresses = await window.web3.eth.getAccounts();
+    setAddresses(addresses);
+    // TODO: remove line below
+    setRecipientAddress(addresses[1]);
+    return addresses;
+  }
+
+  // Sends a message
+  const requestSendMessage = async (message) => {
+    await chatContract.methods.sendMessage(recipientAddress, message).send({
+      from: userAddress, gas: 1500000
+    });
+  } 
+
+  // Sends a message
+  const requestGetAllMessages = async () => {
+    await chatContract.methods.getAllMessages(recipientAddress).send({
+      from: userAddress, gas: 1500000
+    });
+  }
+
+  const testFunction = async () => {
+    const testMsg = "Test message";
+    console.log(`Sending test message to ${recipientAddress}: "${testMsg}"`);
+    await requestSendMessage(testMsg);
+    // await requestGetAllMessages();
+  }
+
   return (
-    <div>{addresses.map((add) => <h2>{JSON.stringify(add)}</h2>)}</div>
+    <div>
+      <h3>Messaging Info</h3>
+      <div>Recipient address: {recipientAddress}</div>
+      <div>All Available Addresses:</div>
+      <ul>{addresses.map((add) => <li key={add}>{String(add)}</li>)}</ul>
+
+      <h3>Test Info</h3>
+      <div>isContractAvailable: {String(chatContract !== null)}</div>
+      <div>isListenersActive: {String(isListenersActive)}</div>
+      <button onClick={testFunction}>Send Test message</button>
+      <button onClick={requestGetAllMessages}>Fetch messages</button>
+
+      <h3>Messages</h3>
+      <ul>{fullMessageList.map((m, i) =>
+        <li key={i}>{m.isOwn ? 'You sent:' : 'They sent:'} {m.msg}</li>
+      )}</ul>
+    </div>
   )
 }
 

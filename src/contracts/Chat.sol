@@ -17,7 +17,7 @@ contract Chat {
         string message
     );
 
-    event messagesFetchEvent(
+    event messagesFetchAllEvent(
         address indexed from,
         address indexed to,
         Message[] messages
@@ -31,9 +31,9 @@ contract Chat {
 
     function getAllMessages(address to) public {
         if (messages[msg.sender][to].length != 0) {
-            emit messagesFetchEvent(msg.sender, to, messages[msg.sender][to]);
+            emit messagesFetchAllEvent(msg.sender, to, messages[msg.sender][to]);
         } else {
-            emit messagesFetchEvent(msg.sender, to, messages[to][msg.sender]);
+            emit messagesFetchAllEvent(msg.sender, to, messages[to][msg.sender]);
         }
     }
 }
