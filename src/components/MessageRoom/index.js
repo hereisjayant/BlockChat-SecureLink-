@@ -1,11 +1,14 @@
-import React, { useEffect, useState } from 'react'
-import Chat from "../../abis/Chat.json"
+import React, { useEffect, useState } from 'react';
+import Chat from "../../abis/Chat.json";
+
+import Messenger from "../../services/chat";
 
 const MessageRoom = ({
-  messenger,
   userAddress
 }) =>  {
 
+  const [currMessenger, setCurrMessenger] = useState(null);
+  const [messengers, setMessengers] = useState({});
   const [chatContract, setChatContract] = useState(null);
   const [isListenersActive, setIsListenersActive] = useState(false);
 
@@ -17,7 +20,6 @@ const MessageRoom = ({
   const [fullMessageList, setFullMessageList] = useState([]);
 
   useEffect(() => {
-    console.log({ messenger })
     if (!chatContract) fetchSmartContract();
     else loadEverything();
   }, [chatContract]);
@@ -108,7 +110,8 @@ const MessageRoom = ({
   const fetchAddresses = async () => {
     const addresses = await window.web3.eth.getAccounts();
     setAddresses(addresses);
-    // TODO: remove line below
+    // TODO: remove lines below
+    await createNewMessenger();
     setRecipientAddress(addresses[1]);
     return addresses;
   }
@@ -128,11 +131,28 @@ const MessageRoom = ({
     });
   }
 
+  // This is where things start going downhill
+  const createNewMessenger = async () => {
+    try {
+      const m = new Messenger();
+      console.log('new thing', m);
+      await m.generateDH();
+      let pkr = await m.getDHPublicKey();
+      await m.generateRootKey(pkr);
+      await m.generateDH();
+      pkr = await m.getDHPublicKey();
+      setCurrMessenger(m);
+      console.log({ m })
+    } catch (err) {
+      console.error("error loading messenger!", err);
+    }
+  }
+
   const testFunction = async () => {
     const testMsg = "Test message";
     console.log(`Sending test message to ${recipientAddress}: "${testMsg}"`);
     // ** CALL ENCRYPT HERE **
-    const testPackageEncrypted = await messenger.ratchetEncrypt(testMsg);
+    const testPackageEncrypted = await currMessenger.ratchetEncrypt(testMsg);
     const { cipherText: testMsgEncrypted, ...headers } = testPackageEncrypted;
     console.log(`### ecrpyted message: ${testMsgEncrypted}`)
     await requestSendMessage(testMsg, JSON.stringify(headers));
@@ -146,7 +166,7 @@ const MessageRoom = ({
       <div>All Available Addresses:</div>
       <ul>{addresses.map((add) => <li key={add}>{String(add)}</li>)}</ul>
       <h3>Test Info</h3>
-      <div>isMessengerAvailable: {String(messenger !== null)}</div>
+      <div>isMessengerAvailable: {String(currMessenger !== null)}</div>
       <div>isContractAvailable: {String(chatContract !== null)}</div>
       <div>isListenersActive: {String(isListenersActive)}</div>
       <button onClick={testFunction}>Send Test message</button>
