@@ -111,7 +111,7 @@ const MessageRoom = ({
     const addresses = await window.web3.eth.getAccounts();
     setAddresses(addresses);
     // TODO: remove lines below
-    await createNewMessenger();
+    // await createNewMessenger();
     setRecipientAddress(addresses[1]);
     return addresses;
   }
@@ -152,7 +152,15 @@ const MessageRoom = ({
     const testMsg = "Test message";
     console.log(`Sending test message to ${recipientAddress}: "${testMsg}"`);
     // ** CALL ENCRYPT HERE **
-    const testPackageEncrypted = await currMessenger.ratchetEncrypt(testMsg);
+    const m = new Messenger();
+    console.log('new thing', m);
+    await m.generateDH();
+    let pkr = await m.getDHPublicKey();
+    await m.generateRootKey(pkr);
+    await m.generateDH();
+    pkr = await m.getDHPublicKey();
+    // setCurrMessenger(m);
+    const testPackageEncrypted = await m.ratchetEncrypt(testMsg);
     const { cipherText: testMsgEncrypted, ...headers } = testPackageEncrypted;
     console.log(`### ecrpyted message: ${testMsgEncrypted}`)
     await requestSendMessage(testMsg, JSON.stringify(headers));

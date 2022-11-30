@@ -1,4 +1,4 @@
-const crypto = windows.crypto;
+const crypto = window.crypto;
 // replacement should be something like
 // const crypto = windows.crypto
 const subtle = crypto.subtle;
@@ -294,7 +294,7 @@ class Messenger
      */
     encodeHeader(header)
     {
-        return Buffer.from((new TextEncoder).encode(JSON.stringify(header))).toString('hex');
+        return (new TextEncoder).encode(JSON.stringify(header));
     }
 
     /**
@@ -315,7 +315,7 @@ class Messenger
             {name: 'HMAC'},
             authKey,
             hashHeader,
-            "00" + this.encodeHeader(header) + Buffer.from(cipherText).toString('hex')
+            this.encodeHeader(header) + Buffer.from(cipherText).toString('hex')
         );
         if (!verified)
             throw `Message Integrity Error; Message No: ${this.n_r}`;
@@ -338,7 +338,15 @@ class Messenger
         const {chainKey, messageKey} = await this.kdfCK(this.chainKeyS);
         this.chainKeyS = chainKey;
 
+        /**
+         * ad (Associated Data) is required for AEAD encryption
+         * Following (https://signal.org/docs/specifications/doubleratchet/#double-ratchet),
+         * we fix it to a constant (0) since we should be using different message keys for each message
+         * The other values `p_n` and `n` are used to help determine how far to move the 
+         * sending and receiving chain ratchets in case of out of order messages
+         */
         let header = {
+            ad: 0,
             publicKey: Buffer.from(await this.getDHPublicKey()).toString('hex'),
             p_n: this.p_n,
             n: this.n_s,
@@ -354,15 +362,7 @@ class Messenger
             encryptKey,
             plaintext
         );
-
-        /**
-         * ad (Associated Data) is required for AEAD encryption
-         * Following (https://signal.org/docs/specifications/doubleratchet/#double-ratchet),
-         * we fix it to a constant (0) since we should be using different message keys for each message
-         * The other values `p_n` and `n` are used to help determine how far to move the
-         * sending and receiving chain ratchets in case of out of order messages
-         */
-        const hashHeader = await subtle.sign({name: 'HMAC'}, authKey, "00" + this.encodeHeader(header) + Buffer.from(cipherText).toString('hex'));
+        const hashHeader = await subtle.sign({name: 'HMAC'}, authKey, this.encodeHeader(header) + Buffer.from(cipherText).toString('hex'));
 
         return {header, cipherText, hashHeader};
     }
