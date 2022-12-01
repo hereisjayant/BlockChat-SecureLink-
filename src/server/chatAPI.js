@@ -9,13 +9,13 @@ const getMessenger = (address) => allMessengers.find(x => x.address == address);
 router
     /**
      * Create Messenger to talk to new person; Each person should only have one messenger
-     * @bodyParam {string} address Address to create Messenger for
+     * @param {string} address Address to create Messenger for
      */
-    .post('/createChat', async (req, res) => {
-        const messenger = new Messenger(req.body.address);
+    .post('/createChat/:address', async (req, res) => {
+        const messenger = new Messenger(req.params.address);
         await messenger.generateDH();
         allMessengers.push(messenger);
-        return res.sendStatus(200).json({success: true});
+        return res.sendStatus(200);
     })
 
     /**
@@ -27,9 +27,9 @@ router
         if (messenger)
         {
             const key = await messenger.getDHPublicKey();
-            return res.sendStatus(200).json({success: true, key: key});
+            return res.status(200).json({success: true, key: key});
         } else 
-            return res.sendStatus(400).json({success: false});
+            return res.status(400).json({success: false});
     })
 
     /**
@@ -41,7 +41,7 @@ router
         const messenger = getMessenger(req.body.address);
         if (messenger)
         {
-            await messenger.genererateRootKey(req.body.key);
+            await messenger.generateRootKey(req.body.key);
             await messenger.generateDH();
             return res.sendStatus(200);
         } else
@@ -74,18 +74,18 @@ router
         const m = getMessenger(req.body.address);
         if (m)
         {
-            const {header, ciphertext, hashHeader} = await m.ratchetEncrypt(req.body.message);
-            return res.sendStatus(200).json({success: true, header: header, ciphertext: ciphertext, hashHeader: hashHeader});
+            const {header, cipherText, hashHeader} = await m.ratchetEncrypt(req.body.message);
+            return res.status(200).json({success: true, header: header, ciphertext: cipherText, hashHeader: hashHeader});
         } else
-            return res.sendStatus(400).json({success: false});
+            return res.status(400).json({success: false});
     })
 
     /**
      * Decrypt message sent by person
      * @bodyParam {string} address Address of user
      * @bodyParam {object} header Message header
-     * @bodyParam {buffer} cipherText 
-     * @bodyParam {buffer} hashHeader
+     * @bodyParam {string} cipherText
+     * @bodyParam {string} hashHeader
      * @return {{header, cipherText, hashHeader}} Encrypted Message
      */
     .post('/decryptMessage', async (req, res) =>{
@@ -93,9 +93,9 @@ router
         if (m)
         {
             const plainText = await m.ratchetDecrypt(req.body.header, req.body.ciphertext, req.body.hashHeader);
-            return res.sendStatus(200).json({success: true, plainText: plainText});
+            return res.status(200).json({success: true, plainText: plainText});
         } else
-            return res.sendStatus(400).json({success: false});
+            return res.status(400).json({success: false});
         
     })
 

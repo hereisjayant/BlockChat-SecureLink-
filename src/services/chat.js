@@ -345,7 +345,7 @@ class Messenger
         );
         const hashHeader = await subtle.sign({name: 'HMAC'}, authKey, this.encodeHeader(header) + Buffer.from(cipherText).toString('hex'));
 
-        return {header, cipherText, hashHeader};
+        return {header, cipherText: Buffer.from(cipherText).toString('hex'), hashHeader: Buffer.from(hashHeader).toString('hex')};
     }
 
     /**
@@ -359,6 +359,8 @@ class Messenger
     async ratchetDecrypt(header, cipherText, hashHeader)
     {
         // Check if message corresponds to a skipped message
+        cipherText = Buffer.from(cipherText, 'hex');
+        hashHeader = Buffer.from(hashHeader, 'hex');
         const plainTextBytes = await this.trySkippedMessageKeys(header, cipherText, hashHeader);
         if (plainTextBytes)
             return plainTextBytes;
