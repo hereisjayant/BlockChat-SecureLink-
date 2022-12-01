@@ -1,6 +1,4 @@
-const crypto = window.crypto;
-// replacement should be something like
-// const crypto = windows.crypto
+import crypto from 'crypto'
 const subtle = crypto.subtle;
 
 
@@ -57,11 +55,8 @@ class Messenger
         const messenger = new Messenger();
         const makeUint8Buf = (x) => Uint8Array.from(Buffer.from(x, 'hex'));
         messenger.address = imported.address;
-        messenger.dhsKeys = {
-            privateKey: await subtle.importKey('pkcs8', makeUint8Buf(imported.dhsKeys.privateKey), {name: 'X25519'}, true, ['deriveKey', 'deriveBits']),
-            publicKey: await subtle.importKey('spki', makeUint8Buf(imported.dhsKeys.publicKey), {name: 'X25519'},true, ['deriveKey', 'deriveBits']),
-        };
-        messenger.dhrPK = await subtle.importKey('spki', makeUint8Buf(imported.dhrPK), {name: 'X25519'}, true, ['deriveKey', 'deriveBits']);
+        messenger.dhsKeys = imported.dhsKeys;
+        messenger.dhrPK = imported.dhrPK
         messenger.rootKey = makeUint8Buf(imported.rootKey);
         messenger.chainKeyS = await subtle.importKey('jwk', imported.chainKeyS, messenger.HMAC, true, ['sign', 'verify']);
         messenger.chainKeyR = await subtle.importKey('jwk', imported.chainKeyR, messenger.HMAC, true, ['sign', 'verify']);
@@ -77,32 +72,24 @@ class Messenger
      * Generates Diffie-Hellman Key Exchange using Curve25519 
      * Stores key pair into this.dhsKeys
      */
-    async generateDH()
+    generateDH()
     {
-        this.dhsKeys = await subtle.generateKey({
-            name: 'X25519'
-        }, true, ['deriveKey', 'deriveBits']);
+        this.dhsKeys = crypto.generateKeyPairSync(
+            'x25519',
+            {
+                privateKeyEncoding: {type: 'pkcs8', format: 'pem'},
+                publicKeyEncoding: {type: 'spki', format: 'pem'},
+            }
+        );
     }
 
     /**
      * Returns DH Public key
      * @returns DH Public Key in 'spki-pem' form
      */
-    async getDHPublicKey()
+    getDHPublicKey()
     {
-        return await subtle.exportKey('spki', this.dhsKeys.publicKey);
-    }
-
-    /**
-     * Converts Raw Buffer in 'spki' to X25519 Key
-     * @param {Buffer | string} key 
-     * @returns X25519 Crypto Key
-     */
-    async convertKeyX25519(key)
-    {
-        if (typeof(key) == 'string')
-            key = Buffer.from(key, 'hex');
-        return await subtle.importKey('spki', key, {name: 'X25519'}, true, ['deriveBits', 'deriveKey']);
+        return this.dhsKeys.publicKey;
     }
 
     /**
@@ -111,8 +98,6 @@ class Messenger
      */
     async receivePublicKey(publicKey)
     {
-        if (typeof(publicKey) != 'string')
-            publicKey = Buffer.from(publicKey).toString('hex');
         this.dhrPK = publicKey;
         const {chainKey, rootKey} = await this.kdfRK();
         this.rootKey = rootKey;
@@ -161,15 +146,13 @@ class Messenger
      */
     async generateRootKey(publicKey)
     {
-        const key = await subtle.deriveBits(
+        const keyBits = crypto.diffieHellman(
             {
-                name: 'X25519',
-                public: await this.convertKeyX25519(publicKey),
-            }, 
-            this.dhsKeys.privateKey,
-            null
-        );
-        this.rootKey = key;
+                publicKey: crypto.createPublicKey(publicKey),
+                privateKey: crypto.createPrivateKey(this.dhsKeys.privateKey)
+            }
+        )
+        this.rootKey = keyBits;
     }
 
     /**
@@ -178,13 +161,11 @@ class Messenger
      */
     async computeDH()
     {
-        const keyBits = await subtle.deriveBits(
+        const keyBits = crypto.diffieHellman(
             {
-                name: 'X25519',
-                public: await this.convertKeyX25519(this.dhrPK),
-            }, 
-            this.dhsKeys.privateKey,
-            null,
+                publicKey: crypto.createPublicKey(this.dhrPK),
+                privateKey: crypto.createPrivateKey(this.dhsKeys.privateKey)
+            }
         );
         return await this.convertToHKDF(keyBits);
     }
@@ -347,7 +328,7 @@ class Messenger
          */
         let header = {
             ad: 0,
-            publicKey: Buffer.from(await this.getDHPublicKey()).toString('hex'),
+            publicKey: this.getDHPublicKey(),
             p_n: this.p_n,
             n: this.n_s,
         };
@@ -463,10 +444,7 @@ class Messenger
     {
         return JSON.stringify({
             address: this.address,
-            dhsKeys: {
-                publicKey: Buffer.from(await subtle.exportKey('spki', this.dhsKeys.publicKey)).toString('hex'), 
-                privateKey: Buffer.from(await subtle.exportKey('pkcs8', this.dhsKeys.privateKey)).toString('hex')
-            },
+            dhsKeys: this.dhsKeys,
             dhrPK: this.dhrPK,
             rootKey: Buffer.from(this.rootKey).toString('hex'),
             chainKeyS: await subtle.exportKey('jwk', this.chainKeyS),
