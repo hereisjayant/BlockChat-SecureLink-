@@ -156,7 +156,7 @@ const MessageRoom = ({
         <div>All Available Addresses:</div>
         <ul>{addresses.map((add) => <li key={add}>{String(add)}</li>)}</ul>
         <h3>Test Info</h3>
-        <div>isMessengerAvailable: {String(currMessenger !== null)}</div>
+        {/* <div>isMessengerAvailable: {String(currMessenger !== null)}</div> */}
         <div>isContractAvailable: {String(chatContract !== null)}</div>
         <div>isListenersActive: {String(isListenersActive)}</div>
         <button onClick={testFunction}>Send Test message</button>
