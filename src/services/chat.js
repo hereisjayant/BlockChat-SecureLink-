@@ -57,9 +57,9 @@ class Messenger
         messenger.address = imported.address;
         messenger.dhsKeys = imported.dhsKeys;
         messenger.dhrPK = imported.dhrPK
-        messenger.rootKey = makeUint8Buf(imported.rootKey);
-        messenger.chainKeyS = await subtle.importKey('jwk', imported.chainKeyS, messenger.HMAC, true, ['sign', 'verify']);
-        messenger.chainKeyR = await subtle.importKey('jwk', imported.chainKeyR, messenger.HMAC, true, ['sign', 'verify']);
+        messenger.rootKey = imported.rootKey ? makeUint8Buf(imported.rootKey): null;
+        messenger.chainKeyS = imported.chainKeyS ? await subtle.importKey('jwk', imported.chainKeyS, messenger.HMAC, true, ['sign', 'verify']): null;
+        messenger.chainKeyR = imported.chainKeyR ? await subtle.importKey('jwk', imported.chainKeyR, messenger.HMAC, true, ['sign', 'verify']): null;
         messenger.n_s = imported.n_s;
         messenger.n_r = imported.n_r;
         messenger.p_n = imported.p_n;
@@ -449,8 +449,8 @@ class Messenger
             dhsKeys: this.dhsKeys,
             dhrPK: this.dhrPK,
             rootKey: Buffer.from(this.rootKey).toString('hex'),
-            chainKeyS: await subtle.exportKey('jwk', this.chainKeyS),
-            chainKeyR: await subtle.exportKey('jwk', this.chainKeyR),
+            chainKeyS: this.chainKeyS ? await subtle.exportKey('jwk', this.chainKeyS): null,
+            chainKeyR: this.chainKeyR ? await subtle.exportKey('jwk', this.chainKeyR): null,
             n_s: this.n_s,
             n_r: this.n_r,
             p_n: this.p_n,

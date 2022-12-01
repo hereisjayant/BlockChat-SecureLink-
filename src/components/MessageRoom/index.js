@@ -114,8 +114,7 @@ const MessageRoom = ({
   const fetchAddresses = async () => {
     const addresses = await window.web3.eth.getAccounts();
     setAddresses(addresses);
-    // TODO: remove lines below
-    // await createNewMessenger();
+    // TODO: allow recipient to change
     setRecipientAddress(addresses[1]);
     return addresses;
   }
@@ -135,39 +134,14 @@ const MessageRoom = ({
     });
   }
 
-  // This is where things start going downhill
-  const createNewMessenger = async () => {
-    try {
-      const m = new Messenger();
-      console.log('new thing', m);
-      await m.generateDH();
-      let pkr = await m.getDHPublicKey();
-      await m.generateRootKey(pkr);
-      await m.generateDH();
-      pkr = await m.getDHPublicKey();
-      setCurrMessenger(m);
-      console.log({ m })
-    } catch (err) {
-      console.error("error loading messenger!", err);
-    }
-  }
-
   const testFunction = async () => {
     const testMsg = "Test message";
     console.log(`Sending test message to ${recipientAddress}: "${testMsg}"`);
     // ** CALL ENCRYPT HERE **
-    const m = new Messenger();
-    console.log('new thing', m);
-    await m.generateDH();
-    let pkr = await m.getDHPublicKey();
-    await m.generateRootKey(pkr);
-    await m.generateDH();
-    pkr = await m.getDHPublicKey();
-    // setCurrMessenger(m);
-    const testPackageEncrypted = await m.ratchetEncrypt(testMsg);
-    const { cipherText: testMsgEncrypted, ...headers } = testPackageEncrypted;
-    console.log(`### ecrpyted message: ${testMsgEncrypted}`)
-    await requestSendMessage(testMsg, JSON.stringify(headers));
+    // const testPackageEncrypted = await m.ratchetEncrypt(testMsg);
+    // const { cipherText: testMsgEncrypted, ...headers } = testPackageEncrypted;
+    // console.log(`### ecrpyted message: ${testMsgEncrypted}`)
+    // await requestSendMessage(testMsg, JSON.stringify(headers));
     // await requestGetAllMessages();
   }
 
