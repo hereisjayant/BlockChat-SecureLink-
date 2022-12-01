@@ -129,7 +129,7 @@ router
      * @bodyParam {object} header Message header
      * @bodyParam {string} cipherText
      * @bodyParam {string} hashHeader
-     * @return {{header, cipherText, hashHeader}} Encrypted Message
+     * @return {{success, plainText}} Encrypted Message
      */
     .post('/decryptMessage', async (req, res) =>{
         const m = getMessenger(req.body.address);
