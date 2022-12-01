@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react'
-import Chat from "../../abis/Chat.json"
+import React, { useEffect, useState } from 'react';
+import Chat from "../../abis/Chat.json";
 
 const MessageRoom = ({
   userAddress
@@ -72,6 +72,8 @@ const MessageRoom = ({
 
     const ml = [];
 
+    // TODO: 'unstringify' and store headers for decryption as well
+    // ** CALL DECRYPT SOMEWHERE HERE **
     messages.forEach((m) => {
       ml.push({
         msg: m['message'],
@@ -104,13 +106,14 @@ const MessageRoom = ({
   const fetchAddresses = async () => {
     const addresses = await window.web3.eth.getAccounts();
     setAddresses(addresses);
-    // TODO: remove line below
+    // TODO: allow recipient to change
     setRecipientAddress(addresses[1]);
     return addresses;
   }
 
   // Sends a message
   const requestSendMessage = async (message) => {
+    // TODO: change "Message" schema to store headers and pass headers into this method
     await chatContract.methods.sendMessage(recipientAddress, message).send({
       from: userAddress, gas: 1500000
     });
@@ -126,7 +129,11 @@ const MessageRoom = ({
   const testFunction = async () => {
     const testMsg = "Test message";
     console.log(`Sending test message to ${recipientAddress}: "${testMsg}"`);
-    await requestSendMessage(testMsg);
+    // ** CALL ENCRYPT HERE **
+    // const testPackageEncrypted = await m.ratchetEncrypt(testMsg);
+    // const { cipherText: testMsgEncrypted, ...headers } = testPackageEncrypted;
+    // console.log(`### ecrpyted message: ${testMsgEncrypted}`)
+    // await requestSendMessage(testMsg, JSON.stringify(headers));
     // await requestGetAllMessages();
   }
 
@@ -136,8 +143,8 @@ const MessageRoom = ({
       <div>Recipient address: {recipientAddress}</div>
       <div>All Available Addresses:</div>
       <ul>{addresses.map((add) => <li key={add}>{String(add)}</li>)}</ul>
-
       <h3>Test Info</h3>
+      {/* <div>isMessengerAvailable: {String(currMessenger !== null)}</div> */}
       <div>isContractAvailable: {String(chatContract !== null)}</div>
       <div>isListenersActive: {String(isListenersActive)}</div>
       <button onClick={testFunction}>Send Test message</button>

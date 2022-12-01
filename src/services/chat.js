@@ -1,5 +1,6 @@
-const crypto = require("crypto");
+import crypto from 'crypto'
 const subtle = crypto.subtle;
+
 
 
 /**
@@ -16,8 +17,9 @@ const subtle = crypto.subtle;
  */
 class Messenger
 {
-    constructor()
+    constructor(address)
     {
+        this.address = address  // Address of user to talk to
         this.dhsKeys = null;    // DH Private and Public Key pair
         this.dhrPK = null;      // Received Public Key pair from other user
         this.rootKey = null;    // Root key used to establish Root Ratchet
@@ -52,11 +54,12 @@ class Messenger
     {
         const messenger = new Messenger();
         const makeUint8Buf = (x) => Uint8Array.from(Buffer.from(x, 'hex'));
+        messenger.address = imported.address;
         messenger.dhsKeys = imported.dhsKeys;
-        messenger.dhrPK = imported.dhrPK;
-        messenger.rootKey = makeUint8Buf(imported.rootKey);
-        messenger.chainKeyS = await subtle.importKey('jwk', imported.chainKeyS, messenger.HMAC, true, ['sign', 'verify']);
-        messenger.chainKeyR = await subtle.importKey('jwk', imported.chainKeyR, messenger.HMAC, true, ['sign', 'verify']);
+        messenger.dhrPK = imported.dhrPK
+        messenger.rootKey = imported.rootKey ? makeUint8Buf(imported.rootKey): null;
+        messenger.chainKeyS = imported.chainKeyS ? await subtle.importKey('jwk', imported.chainKeyS, messenger.HMAC, true, ['sign', 'verify']): null;
+        messenger.chainKeyR = imported.chainKeyR ? await subtle.importKey('jwk', imported.chainKeyR, messenger.HMAC, true, ['sign', 'verify']): null;
         messenger.n_s = imported.n_s;
         messenger.n_r = imported.n_r;
         messenger.p_n = imported.p_n;
@@ -65,11 +68,11 @@ class Messenger
         return messenger;
     }
 
-    /**
+    /*
      * Generates Diffie-Hellman Key Exchange using Curve25519 
      * Stores key pair into this.dhsKeys
      */
-    async generateDH()
+    generateDH()
     {
         this.dhsKeys = crypto.generateKeyPairSync(
             'x25519',
@@ -177,7 +180,7 @@ class Messenger
      */
     async generateEncryptKeys(messageKey)
     {
-        const neededBytes = 80;
+        const neededBits = 80 * 8;
         messageKey = await this.convertToHKDF(messageKey);
         const key_init = await subtle.deriveBits
         (
@@ -188,21 +191,11 @@ class Messenger
                 salt: this.salt0,
             },
             messageKey,
-            neededBytes,
+            neededBits,
         );
-        let encryptKey = new ArrayBuffer(32);
-        let authKey = new ArrayBuffer(32);
-        let iv = new ArrayBuffer(16);
-
-        for (let i = 0; i < neededBytes; i++)
-        {
-            if (i < 32)
-                encryptKey[i] = key_init[i];
-            else if (i < 64)
-                authKey[i] = key_init[i];
-            else
-                iv[i] = key_init[i];
-        }
+        let encryptKey = key_init.slice(0, 32);
+        let authKey = key_init.slice(32, 64);
+        let iv = key_init.slice(64, 80);
         encryptKey = await subtle.importKey
         (
             'raw',
@@ -303,8 +296,8 @@ class Messenger
             {name: 'HMAC'},
             authKey,
             hashHeader,
-            this.encodeHeader(header)
-        ) 
+            this.encodeHeader(header) + Buffer.from(cipherText).toString('hex')
+        );
         if (!verified)
             throw `Message Integrity Error; Message No: ${this.n_r}`;
 
@@ -335,7 +328,7 @@ class Messenger
          */
         let header = {
             ad: 0,
-            publicKey: this.dhsKeys.publicKey,
+            publicKey: this.getDHPublicKey(),
             p_n: this.p_n,
             n: this.n_s,
         };
@@ -350,10 +343,9 @@ class Messenger
             encryptKey,
             plaintext
         );
+        const hashHeader = await subtle.sign({name: 'HMAC'}, authKey, this.encodeHeader(header) + Buffer.from(cipherText).toString('hex'));
 
-        const hashHeader = await subtle.sign({name: 'HMAC'}, authKey, this.encodeHeader(header));
-
-        return {header, cipherText, hashHeader};
+        return {header, cipherText: Buffer.from(cipherText).toString('hex'), hashHeader: Buffer.from(hashHeader).toString('hex')};
     }
 
     /**
@@ -367,6 +359,8 @@ class Messenger
     async ratchetDecrypt(header, cipherText, hashHeader)
     {
         // Check if message corresponds to a skipped message
+        cipherText = Buffer.from(cipherText, 'hex');
+        hashHeader = Buffer.from(hashHeader, 'hex');
         const plainTextBytes = await this.trySkippedMessageKeys(header, cipherText, hashHeader);
         if (plainTextBytes)
             return plainTextBytes;
@@ -398,7 +392,7 @@ class Messenger
         let index = this.msSkip.findIndex(i => i.publicKey == header.publicKey && i.n == header.n);
         if (index > -1)
         {
-            const messageKey = this.msSkip[index].msgKey;
+            const messageKey = Buffer.from(this.msSkip[index].msgKey, 'hex');
             this.msSkip.splice(index, 1);
             return await this.decryptMsg(messageKey, cipherText, header, hashHeader);
         }
@@ -416,8 +410,9 @@ class Messenger
             while (this.n_r < until)
             {
                 const {chainKey, messageKey} = await this.kdfCK(this.chainKeyR);
-                this.chainKeyS = chainKey;
-                this.msSkip.push({publicKey: this.dhrPK, msgKey: messageKey, n: this.n_r});
+                this.chainKeyR = chainKey;
+                const hexMsgKey = Buffer.from(messageKey).toString('hex');
+                this.msSkip.push({publicKey: this.dhrPK, msgKey: hexMsgKey, n: this.n_r});
                 this.n_r += 1;
             }
         }
@@ -450,32 +445,33 @@ class Messenger
     async export()
     {
         return JSON.stringify({
+            address: this.address,
             dhsKeys: this.dhsKeys,
             dhrPK: this.dhrPK,
             rootKey: Buffer.from(this.rootKey).toString('hex'),
-            chainKeyS: await subtle.exportKey('jwk', this.chainKeyS),
-            chainKeyR: await subtle.exportKey('jwk', this.chainKeyR),
+            chainKeyS: this.chainKeyS ? await subtle.exportKey('jwk', this.chainKeyS): null,
+            chainKeyR: this.chainKeyR ? await subtle.exportKey('jwk', this.chainKeyR): null,
             n_s: this.n_s,
             n_r: this.n_r,
             p_n: this.p_n,
-            msSkip: this.msSkip.map(x => {return {publicKey: x.publicKey, msgKey: Buffer.from(x.msgKey).toString('hex'), n: x.n}}),
+            msSkip: this.msSkip.map(x => {return {publicKey: x.publicKey, msgKey: x.msgKey, n: x.n}}),
         });
     }
 }
 
 const main = async () => {
-    let a = new Messenger();
-    let b = new Messenger();
+    let a = new Messenger('alice');
+    let b = new Messenger('bob');
     await a.generateDH();
     await b.generateDH();
-    let apkr = a.getDHPublicKey();
-    let bpkr = b.getDHPublicKey();
+    let apkr = await a.getDHPublicKey();
+    let bpkr = await b.getDHPublicKey();
     await a.generateRootKey(bpkr);
     await b.generateRootKey(apkr);
 
     await a.generateDH();
     await b.generateDH();
-    bpkr = b.getDHPublicKey();
+    bpkr = await b.getDHPublicKey();
     await a.receivePublicKey(bpkr);
     let ct = await a.ratchetEncrypt('a');
     console.log(await b.ratchetDecrypt(ct.header, ct.cipherText, ct.hashHeader));
@@ -499,7 +495,7 @@ const main = async () => {
     console.log(await a.ratchetDecrypt(ct.header, ct.cipherText, ct.hashHeader));
     ct = await a.ratchetEncrypt("a");
     console.log(await b.ratchetDecrypt(ct.header, ct.cipherText, ct.hashHeader));
-    ct = await b.ratchetEncrypt("b");
+    ct = await b.ratchetEncrypt("start export");
     console.log(await a.ratchetDecrypt(ct.header, ct.cipherText, ct.hashHeader));
     let msg1 = await a.ratchetEncrypt("msg1");
     let msg2 = await a.ratchetEncrypt("msg2");
@@ -523,5 +519,7 @@ const main = async () => {
     console.log(await b.ratchetDecrypt(ct.header, ct.cipherText, ct.hashHeader));
 };
 
-main();
+// main();
+
+export default Messenger;
 

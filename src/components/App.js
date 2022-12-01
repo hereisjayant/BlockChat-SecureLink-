@@ -13,8 +13,8 @@ const App = () => {
     loadEverything();
   }, []);
 
-  const loadEverything = () => {
-    loadWeb3();
+  const loadEverything = async () => {
+    await loadWeb3();
   }
 
   const loadWeb3 = async () => {
