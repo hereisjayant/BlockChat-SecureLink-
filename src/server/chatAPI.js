@@ -143,11 +143,20 @@ router
         
     })
 
+    /**
+     * Create password to use to encrypt secrets
+     * @bodyParam {string} password
+     */
     .post('/createPassword', async (req, res) => {
         await keyStorage.createPassword(req.body.password);
         return res.sendStatus(200);
     })
 
+    /**
+     * Check if given password is correct
+     * Will also try and load encrypted files if they exist
+     * @bodyParam {string} password
+     */
     .post('/checkPassword', async (req, res) => {
         const check = await keyStorage.checkPassword(req.body.password);
         if (check)
@@ -162,12 +171,20 @@ router
             return res.sendStatus(403);
     })
 
+    /**
+     * Save all current messages and messenger objects
+     */
     .put('/saveSession', async (req, res) => {
         const toEncrypt = await stringifySecrets();
         await keyStorage.encryptFiles(toEncrypt);
         return res.sendStatus(200);
     })
 
+    /**
+     * Get all messages from address
+     * @param address Address to get
+     * @return {Array} Contains objects of {msg: message sent/received, time: epoch time, youSent: if YOU sent the message}
+     */
     .get('/messages/:address', async (req, res) => {
         if (allMessages[req.params.address])
             return res.status(200).send(allMessages[req.params.address]);
