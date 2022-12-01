@@ -172,6 +172,18 @@ router
     })
 
     /**
+     * Check if password was previously set
+     */
+    .post('/passwordPreviouslySet', async (req, res) => {
+        const check = await keyStorage.checkPasswordFileExists();
+        if (check) {
+            return res.sendStatus(200);
+        } else {
+            return res.sendStatus(403);
+        }
+    })
+
+    /**
      * Save all current messages and messenger objects
      */
     .put('/saveSession', async (req, res) => {

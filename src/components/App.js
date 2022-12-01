@@ -3,6 +3,7 @@ import Web3 from 'web3';
 import './App.css';
 
 import MessageRoom from "./MessageRoom/index";
+import PasswordForm from './PasswordForm/passwordForm';
 
 const App = () => {
   const debug = false;
@@ -10,6 +11,11 @@ const App = () => {
   const [isConnected, setIsConnected] = useState(false);
   const [userPubAddress, setUserPubAddress] = useState(null);
   const [userBalance, setUserBalance] = useState(0);
+  const [isAuth, setIsAuth] = useState(false);
+
+  const auth = async () => {
+    setIsAuth(true)
+  }
   
   useEffect(() => {
     loadEverything();
@@ -57,18 +63,19 @@ const App = () => {
 
   return (
     <div>
-      {/* Debugging code: to turn on, set debug to true */}
-      {debug &&
-      <div>
-      <h1>Current Address: {userPubAddress}</h1>
-      <div>Balance: {userBalance}</div>
-      </div>}
-      
-      {/* UI */}
-      {isConnected &&
-        <MessageRoom
-          userAddress={userPubAddress}
-        />
+      <PasswordForm authCallback={auth} />
+      {isAuth &&
+        <>
+          {debug && <>
+            <h1>Current Address: {userPubAddress}</h1>
+            <div>Balance: {userBalance}</div>
+          </>}
+          {isConnected &&
+            <MessageRoom
+              userAddress={userPubAddress}
+            />
+          }
+        </>
       }
     </div>
     
