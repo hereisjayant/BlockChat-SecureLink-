@@ -5,6 +5,8 @@ import './App.css';
 import MessageRoom from "./MessageRoom/index";
 
 const App = () => {
+  const debug = false;
+
   const [isConnected, setIsConnected] = useState(false);
   const [userPubAddress, setUserPubAddress] = useState(null);
   const [userBalance, setUserBalance] = useState(0);
@@ -55,14 +57,21 @@ const App = () => {
 
   return (
     <div>
+      {/* Debugging code: to turn on, set debug to true */}
+      {debug &&
+      <div>
       <h1>Current Address: {userPubAddress}</h1>
       <div>Balance: {userBalance}</div>
+      </div>}
+      
+      {/* UI */}
       {isConnected &&
         <MessageRoom
           userAddress={userPubAddress}
         />
       }
     </div>
+    
   )
 }
 

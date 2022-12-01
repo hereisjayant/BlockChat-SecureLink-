@@ -2,10 +2,14 @@ import React, { useEffect, useState } from 'react';
 import Chat from "../../abis/Chat.json";
 
 import Messenger from "../../services/chat";
+import ChatUI from "./Chat";
+import Sidebar from './Sidebar';
 
 const MessageRoom = ({
   userAddress
 }) =>  {
+
+  const debug = false;
 
   const [currMessenger, setCurrMessenger] = useState(null);
   const [messengers, setMessengers] = useState({});
@@ -168,23 +172,41 @@ const MessageRoom = ({
   }
 
   return (
-    <div>
-      <h3>Messaging Info</h3>
-      <div>Recipient address: {recipientAddress}</div>
-      <div>All Available Addresses:</div>
-      <ul>{addresses.map((add) => <li key={add}>{String(add)}</li>)}</ul>
-      <h3>Test Info</h3>
-      <div>isMessengerAvailable: {String(currMessenger !== null)}</div>
-      <div>isContractAvailable: {String(chatContract !== null)}</div>
-      <div>isListenersActive: {String(isListenersActive)}</div>
-      <button onClick={testFunction}>Send Test message</button>
-      <button onClick={requestGetAllMessages}>Fetch messages</button>
 
-      <h3>Messages</h3>
-      <ul>{fullMessageList.map((m, i) =>
-        <li key={i}>{m.isOwn ? 'You sent:' : 'They sent:'} {m.msg}</li>
-      )}</ul>
+    <div>
+      {/* Debugging Code: To turn on, set debug to true*/}
+      {debug &&
+      <div>
+        <h3>Messaging Info</h3>
+        <div>Recipient address: {recipientAddress}</div>
+        <div>All Available Addresses:</div>
+        <ul>{addresses.map((add) => <li key={add}>{String(add)}</li>)}</ul>
+        <h3>Test Info</h3>
+        <div>isMessengerAvailable: {String(currMessenger !== null)}</div>
+        <div>isContractAvailable: {String(chatContract !== null)}</div>
+        <div>isListenersActive: {String(isListenersActive)}</div>
+        <button onClick={testFunction}>Send Test message</button>
+        <button onClick={requestGetAllMessages}>Fetch messages</button>
+
+        <h3>Messages</h3>
+        <ul>{fullMessageList.map((m, i) =>
+          <li key={i}>{m.isOwn ? 'You sent:' : 'They sent:'} {m.msg}</li>
+        )}</ul>
+      </div>
+    }
+
+
+    {/* Actual UI */}
+      <div className='UI'>
+        <div className="container">
+          <Sidebar/>
+          <ChatUI/>
+        </div>        
+      </div>
     </div>
+
+
+
   )
 }
 
