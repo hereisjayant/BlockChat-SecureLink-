@@ -1,15 +1,16 @@
-import React from 'react'
+import React, { useEffect, useState } from 'react'
 import Message from './Message'
 
-function Messages() {
+async function Messages(props) {
+  const [messages, setMessages] = useState([]);
+  useEffect(() => {
+    fetch(`/chat/messages/${props.address}`)
+      .then(res => res.json())
+      .then(x => {console.log(x); setMessages(x)});
+  }, []);
   return (
     <div className='messages'>
-        <Message/>
-        <Message/>
-        <Message/>
-        <Message/>
-        <Message/>
-        <Message/>
+        {messages.map(x => <Message msg = {x} />)}
     </div>
   )
 }

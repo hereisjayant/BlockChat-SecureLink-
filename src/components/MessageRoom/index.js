@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import Chat from "../../abis/Chat.json";
 
-import Messenger from "../../services/chat";
 import ChatUI from "./Chat";
 import Sidebar from './Sidebar';
 

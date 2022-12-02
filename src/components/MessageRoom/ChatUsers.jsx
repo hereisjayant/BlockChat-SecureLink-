@@ -1,26 +1,11 @@
 import React from 'react'
 
-function ChatUsers() {
+function ChatUsers(props) {
   return (
     <div className="chats">
         <div className="userChat">
             <div className="userChatInfo">
-            <span>BOB</span>
-            <p>Last Message</p>
-            </div>
-        </div>
-
-        <div className="userChat">
-            <div className="userChatInfo">
-            <span>Trudy</span>
-            <p>Last Message</p>
-            </div>
-        </div>
-
-        <div className="userChat">
-            <div className="userChatInfo">
-            <span>User</span>
-            <p>Last Message</p>
+            <span>{props.addr}</span>
             </div>
         </div>
     </div>

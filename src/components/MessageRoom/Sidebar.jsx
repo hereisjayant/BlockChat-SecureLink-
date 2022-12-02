@@ -1,14 +1,22 @@
-import React from 'react'
+import React, { useEffect, useState } from 'react'
 import ChatUsers from './ChatUsers'
 import Navbar  from './Navbar'
 import SearchUser from './Search'
 
-const Sidebar = () => {
+const Sidebar = (props) => {
+  const [pastChatters, setChatters] = useState([]);
+
+  useEffect(() => {
+    fetch('/chat/chatAddress')
+      .then(res => res.json())
+      .then(setChatters);
+  }, []);
+
   return (
     <div className='sidebar'>
         <Navbar/>
-        <SearchUser/>
-        <ChatUsers/>
+        <SearchUser searchUser={}/>
+        {pastChatters.map(x => <ChatUsers onClick={this.click} addr={x} />)}
     </div>
   )
 }
