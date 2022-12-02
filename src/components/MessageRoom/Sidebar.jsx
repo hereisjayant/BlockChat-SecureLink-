@@ -1,19 +1,19 @@
-import React, { useEffect, useState } from 'react'
+import React from 'react'
 import ChatUsers from './ChatUsers'
 import Navbar  from './Navbar'
-import SearchUser from './Search'
+// import SearchUser from './Search'
 
 const Sidebar = ({
   addresses,
   newRecipient
 }) => {
-  const [pastChatters, setChatters] = useState([]);
+  // const [pastChatters, setChatters] = useState([]);
 
-  useEffect(() => {
-    fetch('/chat/chatAddress')
-      .then(res => res.json())
-      .then(setChatters);
-  }, []);
+  // useEffect(() => {
+  //   fetch('/chat/chatAddress')
+  //     .then(res => res.json())
+  //     .then(setChatters);
+  // }, []);
 
   return (
     <div className='sidebar'>

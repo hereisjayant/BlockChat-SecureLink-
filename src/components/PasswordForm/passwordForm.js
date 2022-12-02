@@ -45,7 +45,7 @@ class PasswordForm extends React.Component {
     }
 
     async setPassword() {
-        var response = await fetch('/chat/createPassword', {
+        await fetch('/chat/createPassword', {
             method: 'POST',
             headers: jsonHeader,
             body: JSON.stringify({ password: this.state.value })
