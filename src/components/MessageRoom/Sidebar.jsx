@@ -3,7 +3,10 @@ import ChatUsers from './ChatUsers'
 import Navbar  from './Navbar'
 import SearchUser from './Search'
 
-const Sidebar = (props) => {
+const Sidebar = ({
+  addresses,
+  newRecipient
+}) => {
   const [pastChatters, setChatters] = useState([]);
 
   useEffect(() => {
@@ -15,8 +18,11 @@ const Sidebar = (props) => {
   return (
     <div className='sidebar'>
         <Navbar/>
-        <SearchUser searchUser={}/>
-        {pastChatters.map(x => <ChatUsers onClick={this.click} addr={x} />)}
+        {/* <SearchUser searchUser=""/> */}
+        {addresses.map(x => <ChatUsers
+          handleClick={() => { newRecipient(x) }}
+          addr={x}
+          />)}
     </div>
   )
 }

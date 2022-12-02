@@ -26,6 +26,8 @@
     flex: 1;
     position: relative;
     background-color: #2c2c2c;
+    /* max-width: 150px;
+    overflow: hidden; */
 }
 
 .SearchUser {
@@ -98,6 +100,12 @@
 .userChatInfo > span{
     font-style: 20px;
     font-weight: 500;
+    max-width: 150px;
+    width: 150px;
+    text-overflow: ellipsis;
+    overflow: hidden;
+    white-space: nowrap;
+    display: block;
 }
 
 .userChatInfo > p{

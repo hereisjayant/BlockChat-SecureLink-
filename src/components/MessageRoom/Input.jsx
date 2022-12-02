@@ -1,10 +1,15 @@
-import React from 'react'
+import React, { useState } from 'react'
 
-const Input = (props) => {
+const Input = ({ submit }) => {
+  const [msg, setMsg] = useState("");
+
   return (
     <div className='input'>
-        <input type="text" name="" id="" placeholder='Send a message' />
-        <button className='sendbtn'>Send</button>
+        <input type="text" name="" id="" placeholder='Send a message'
+          onChange={(e) => { setMsg(e.currentTarget.value)}}
+          value={msg}
+        />
+        <button className='sendbtn' onClick={() => { submit(msg)}}>Send</button>
     </div>
   )
 }

@@ -1,12 +1,12 @@
 import React from 'react'
 
-const Message = (props) => {
-  const msg = props.msg;
-  if (msg.youSent)
+const Message = ({ text, isOwn }) => {
+  // if (msg.youSent)
+  if (isOwn)
     return (
         <div className='message owner'>
           <div className="messageContent">
-              {<p>`${msg.msg}`</p>}
+              {<p>`${text}`</p>}
           </div>
       </div>
     );
@@ -14,7 +14,7 @@ const Message = (props) => {
       return (
         <div className='message'>
           <div className="messageContent">
-          {<p>`${msg.msg}`</p>}
+          {<p>`${text}`</p>}
           </div>
       </div>
       );

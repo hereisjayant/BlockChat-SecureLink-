@@ -10,15 +10,12 @@ const MessageRoom = ({
 
   const debug = false;
 
-  const [currMessenger, setCurrMessenger] = useState(null);
-  const [messengers, setMessengers] = useState({});
   const [chatContract, setChatContract] = useState(null);
   const [isListenersActive, setIsListenersActive] = useState(false);
 
   const [addresses, setAddresses] = useState([]);
   const [recipientAddress, setRecipientAddress] = useState(null);
 
-  const [messageList, setMessageList] = useState([]);
   // I think below line is temporary, not sure how to coordinate both "didReceiveMessage" and "didFetchAllMessages"
   const [fullMessageList, setFullMessageList] = useState([]);
 
@@ -60,7 +57,7 @@ const MessageRoom = ({
     const message = event.returnValues.message;
     const isOwn = event.returnValues.from.toLowerCase() === userAddress.toLowerCase();
 
-    const ml = messageList;
+    const ml = fullMessageList;
     ml.push(
       {
         msg: message,
@@ -68,7 +65,7 @@ const MessageRoom = ({
       }
     );
 
-    setMessageList(ml);
+    setFullMessageList(ml);
     // updateUI();
   }
 
@@ -114,7 +111,7 @@ const MessageRoom = ({
     const addresses = await window.web3.eth.getAccounts();
     setAddresses(addresses);
     // TODO: allow recipient to change
-    setRecipientAddress(addresses[1]);
+    // setRecipientAddress(addresses[1]);
     return addresses;
   }
 
@@ -124,11 +121,23 @@ const MessageRoom = ({
     await chatContract.methods.sendMessage(recipientAddress, message).send({
       from: userAddress, gas: 1500000
     });
+    const ml = fullMessageList;
+    ml.push({
+      msg: message,
+      isOwn: true,
+    })
+    setFullMessageList(ml);
+    
   } 
 
   // Sends a message
   const requestGetAllMessages = async () => {
     await chatContract.methods.getAllMessages(recipientAddress).send({
+      from: userAddress, gas: 1500000
+    });
+  }
+  const requestGetAllMessagesWAdd = async (newAdd) => {
+    await chatContract.methods.getAllMessages(newAdd).send({
       from: userAddress, gas: 1500000
     });
   }
@@ -142,6 +151,11 @@ const MessageRoom = ({
     // console.log(`### ecrpyted message: ${testMsgEncrypted}`)
     // await requestSendMessage(testMsg, JSON.stringify(headers));
     // await requestGetAllMessages();
+  }
+
+  const getNewMessages = (newAddress) => {
+    setRecipientAddress(newAddress);
+    requestGetAllMessagesWAdd(newAddress);
   }
 
   return (
@@ -172,8 +186,12 @@ const MessageRoom = ({
     {/* Actual UI */}
       <div className='UI'>
         <div className="container">
-          <Sidebar/>
-          <ChatUI/>
+          <Sidebar addresses={addresses} newRecipient={getNewMessages}/>
+          <ChatUI
+            messageList={fullMessageList}
+            address={recipientAddress}
+            send={requestSendMessage}
+          />
         </div>        
       </div>
     </div>
