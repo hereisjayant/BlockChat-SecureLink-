@@ -6,7 +6,7 @@ const Message = ({ text, isOwn }) => {
     return (
         <div className='message owner'>
           <div className="messageContent">
-              {<p>`${text}`</p>}
+              <p>{text}</p>
           </div>
       </div>
     );
@@ -14,7 +14,7 @@ const Message = ({ text, isOwn }) => {
       return (
         <div className='message'>
           <div className="messageContent">
-          {<p>`${text}`</p>}
+          <p>{text}</p>
           </div>
       </div>
       );

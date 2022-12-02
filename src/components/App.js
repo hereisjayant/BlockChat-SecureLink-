@@ -6,7 +6,7 @@ import MessageRoom from "./MessageRoom/index";
 import PasswordForm from './PasswordForm/passwordForm';
 
 const App = () => {
-  const debug = true;
+  const debug = false;
 
   const [isConnected, setIsConnected] = useState(false);
   const [userPubAddress, setUserPubAddress] = useState(null);
@@ -71,6 +71,7 @@ const App = () => {
           </>}
           {isConnected &&
             <MessageRoom
+              userBalance={userBalance}
               userAddress={userPubAddress}
             />
           }

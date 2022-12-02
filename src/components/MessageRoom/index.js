@@ -5,7 +5,8 @@ import ChatUI from "./Chat";
 import Sidebar from './Sidebar';
 
 const MessageRoom = ({
-  userAddress
+  userAddress,
+  userBalance
 }) =>  {
 
   const debug = false;
@@ -56,8 +57,9 @@ const MessageRoom = ({
   const didReceiveMessage = async (event) => {
     const message = event.returnValues.message;
     const isOwn = event.returnValues.from.toLowerCase() === userAddress.toLowerCase();
-
+    
     const ml = fullMessageList;
+    // decrypt here for "msg"
     ml.push(
       {
         msg: message,
@@ -76,8 +78,7 @@ const MessageRoom = ({
 
     const ml = [];
 
-    // TODO: 'unstringify' and store headers for decryption as well
-    // ** CALL DECRYPT SOMEWHERE HERE **
+    // decrypt here for "msg"
     messages.forEach((m) => {
       ml.push({
         msg: m['message'],
@@ -117,7 +118,7 @@ const MessageRoom = ({
 
   // Sends a message
   const requestSendMessage = async (message) => {
-    // TODO: change "Message" schema to store headers and pass headers into this method
+    // encrypt here
     await chatContract.methods.sendMessage(recipientAddress, message).send({
       from: userAddress, gas: 1500000
     });
@@ -186,7 +187,12 @@ const MessageRoom = ({
     {/* Actual UI */}
       <div className='UI'>
         <div className="container">
-          <Sidebar addresses={addresses} newRecipient={getNewMessages}/>
+          <Sidebar
+            addresses={addresses}
+            newRecipient={getNewMessages}
+            userAddress={userAddress}
+            userBalance={userBalance}
+          />
           <ChatUI
             messageList={fullMessageList}
             address={recipientAddress}
