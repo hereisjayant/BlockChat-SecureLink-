@@ -1,10 +1,10 @@
-# SecureLink
+# BlockChat
 
-SecureLink is a decentralized messaging web app that uses blockchain technology to securely deliver encrypted messages between users. By leveraging the Signal Protocol, SecureLink offers message confidentiality and integrity through encryption.
+BlockChat is a decentralized messaging web app that uses blockchain technology to securely deliver encrypted messages between users. By leveraging the Signal Protocol, BlockChat offers message confidentiality and integrity through encryption.
 
 The increasing reliance on the internet for communication has brought attention to internet censorship and privacy concerns. Governments in countries such as China, Saudi Arabia, and Turkey have implemented censorship policies to suppress public dissent among their citizens. In addition, some governments have blocked open-source end-to-end encrypted messaging apps, such as Signal, in order to prevent citizens from communicating and organizing protests.
 
-SecureLink aims to provide a decentralized solution for online communication that supports message confidentiality and integrity via encryption. By using blockchain technology to send and receive messages, SecureLink offers a secure method for online communication that does not rely on a centralized server.
+BlockChat aims to provide a decentralized solution for online communication that supports message confidentiality and integrity via encryption. By using blockchain technology to send and receive messages, BlockChat offers a secure method for online communication that does not rely on a centralized server.
 
 ## System Design Summary
 The project can be split into four major components: the implementation of the blockchain network, smart contracts, message encryption, and local storage. The blockchain network acts as a distributed data structure that stores messages in encrypted form. Using blockchain technology helps ensure message integrity and authenticity. Smart contracts act as the delivery mechanism on the blockchain that allows users to send and fetch messages from the blockchain. To ensure confidentiality, the messages are encrypted using the Signal protocol, which utilizes the Double Ratchet algorithm to generate new keys for each message while also allowing messages to be received out of order. Finally, the application will securely store the sent and received messages in an encrypted local database. Storing the messages on the user’s system allows for messages to be reviewed offline, and encrypting the messages ensures that malicious actors will have a hard time reading the messages even if they have access to the user’s system
